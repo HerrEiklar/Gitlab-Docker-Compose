@@ -1,0 +1,7 @@
+env_files/*.env
+secrets/*.txt
+volumes/*
+
+!volumes/.gitkeep
+
+.env

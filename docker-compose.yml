@@ -1,0 +1,103 @@
+version: "3.3"
+
+services:
+  # loadbalancer:
+  #   image: ${GITLAB_IMAGE}
+
+  postgresql:
+    image: ${POSTGRESQL_IMAGE}
+    restart: always
+    env_file:
+      - ${env_files}/postgresql.env
+    secrets:
+      - postgres_password
+    # volumes:
+    #   - ${volumes}/postgresql/var/lib/postgresql/data:/var/lib/postgresql/data
+    #   - ${volumes}/postgresql/etc/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+
+  redis:
+    image: ${REDIS_IMAGE}
+    restart: always
+    command: sh -c redis-server --requirepass $$(cat /run/secrets/redis_password)
+    secrets:
+      - redis_password
+    # volumes:
+    #   - ${volumes}/redis/data:/data
+
+  rails:
+    image: ${GITLAB_IMAGE}
+    restart: always
+    env_file:
+      - ${env_files}/gitlab.env
+    secrets:
+      - gitaly_auth_token
+      - gitlab_root_password
+      - gitlab_shell_secret_token
+      - postgres_password
+      - redis_password
+    volumes:
+      - ${configs}/rails/gitlab.rb:/gitlab.rb
+      #
+      - ${volumes}/rails/etc/gitlab:/etc/gitlab
+      - ${volumes}/rails/var/log/gitlab:/var/log/gitlab
+      - ${volumes}/rails/var/opt/gitlab:/var/opt/gitlab
+    # ports:
+    #   - 88:80
+    labels:
+      - "traefik.enable=true"
+
+      # Web Interface
+      - "traefik.http.routers.http_gitlab.rule=Host(`${GTILAB_EXTERNAL_URL}`)"
+      - "traefik.http.routers.http_gitlab.entrypoints=web"
+      - "traefik.http.routers.http_gitlab.middlewares=defaultchain@file,redirectToHttps@file"
+
+      - "traefik.http.routers.https_gitlab.rule=Host(`${GTILAB_EXTERNAL_URL}`)"
+      - "traefik.http.routers.https_gitlab.entrypoints=websecure"
+      - "traefik.http.routers.https_gitlab.middlewares=defaultchain@file"
+      - "traefik.http.routers.https_gitlab.service=gitlab"
+      - "traefik.http.routers.https_gitlab.tls=true"
+      - "traefik.http.routers.https_gitlab.tls.certresolver=hetzner01"
+      - "traefik.http.routers.https_gitxlab.tls.domains[0].main=${GTILAB_EXTERNAL_URL}"
+      
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+      - "traefik.http.services.gitlab.loadbalancer.server.scheme=http"
+      - "traefik.http.services.gitlab.loadbalancer.healthcheck.interval=10s"
+      - "traefik.http.services.gitlab.loadbalancer.healthcheck.port=80"
+      - "traefik.http.services.gitlab.loadbalancer.healthcheck.scheme=http"
+      - "traefik.http.services.gitlab.loadbalancer.healthcheck.path=-/-/readiness"
+      - "traefik.http.services.gitlab.loadbalancer.sticky.cookie=true"
+
+  gitaly:
+    image: ${GITLAB_IMAGE}
+    restart: always
+    env_file:
+      - ${env_files}/gitlab.env
+    secrets:
+      - gitaly_auth_token
+      - gitlab_shell_secret_token
+    volumes:
+      - ${configs}/gitaly/gitlab.rb:/gitlab.rb
+      #
+      - ${volumes}/gitaly/etc/gitlab:/etc/gitlab
+      - ${volumes}/gitaly/var/log/gitlab:/var/log/gitlab
+      - ${volumes}/gitaly/var/opt/gitlab:/var/opt/gitlab
+
+secrets:
+  gitaly_auth_token:
+    file: ${secrets}/gitaly_auth_token.txt
+  gitlab_root_password:
+    file: ${secrets}/gitlab_root_password.txt
+  gitlab_shell_secret_token:
+    file: ${secrets}/gitlab_shell_secret_token.txt
+  postgres_password:
+    file: ${secrets}/postgres_password.txt
+  redis_password:
+    file: ${secrets}/redis_password.txt
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.1.0/24
