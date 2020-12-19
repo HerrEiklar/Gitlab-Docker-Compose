@@ -32,12 +32,6 @@ gitlab_rails['db_port'] = 5432
 gitlab_rails['db_username'] = 'gitlab'
 gitlab_rails['db_password'] = File.read('/run/secrets/postgres_password')
 
-## Redis connection details
-redis['enable'] = false
-gitlab_rails['redis_host'] = 'redis'
-gitlab_rails['redis_port'] = 6379
-gitlab_rails['redis_password'] = File.read('/run/secrets/redis_password')
-
 ## Sentry
 # gitlab_rails['sentry_enabled'] = true
 # gitlab_rails['sentry_dsn'] = 'https://<key>@sentry.io/<project>'
