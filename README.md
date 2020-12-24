@@ -4,10 +4,15 @@ Description:
 This is supposed to be a gitlab docker-compose stack with the possibility of loadbalancing each component.
 You might have to read some gitlab-omnibus docs, in order to undersand how to loadbalance each service.
 
+## Reconfigure
+
+* docker-compose exec gitlab gitlab-ctl reconfigure
+* docker-compose restart gitlab; docker-compose logs -f gitlab
+
 ## Register the runner
 
 * Navigate to a page, similar to 'https://gitlab.example.com/admin' and copy the token
-* Then run following command: ./registerRunner gitlab-runner [your token]
+* Then run following command: ./registerRunner [your token]
 
 ## Docs that helped me
 

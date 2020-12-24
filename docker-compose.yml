@@ -1,4 +1,4 @@
-version: "3.3"
+version: '3.3'
 
 services:
   gitlab:
@@ -25,7 +25,8 @@ services:
     env_file:
       - ${env_files}/gitlab.env
     secrets:
-      - gitlab_auth_token
+      - gitlab_imap_password
+      - gitlab_imap_user
       - gitlab_root_password
       - gitlab_smtp_password
       - gitlab_smtp_user
@@ -36,18 +37,15 @@ services:
       - ${volumes}/gitlab/etc/gitlab:/etc/gitlab
       - ${volumes}/gitlab/var/log/gitlab:/var/log/gitlab
       - ${volumes}/gitlab/var/opt/gitlab:/var/opt/gitlab
-    ports:
-      - ${GITLAB_EXTERNAL_PORT}:${GITLAB_EXTERNAL_PORT}
-      - ${GITLAB_REGISTRY_EXTERNAL_PORT}:${GITLAB_REGISTRY_EXTERNAL_PORT}
-      - ${GITLAB_MATTERMOST_EXTERNAL_PORT}:${GITLAB_MATTERMOST_EXTERNAL_PORT}
-      - ${GITLAB_PAGES_EXTERNAL_PORT}:${GITLAB_PAGES_EXTERNAL_PORT}
     labels:
       - "traefik.enable=true"
 
-      # Web Interface
+      # Web
       - "traefik.http.routers.http_gitlab_web.rule=Host(`${GITLAB_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.http_gitlab_web.entrypoints=web"
       - "traefik.http.routers.http_gitlab_web.middlewares=defaultchain@file,redirectToHttps@file"
+      - "traefik.http.routers.http_gitlab_web.service=gitlab_web"
+
       - "traefik.http.routers.https_gitlab_web.rule=Host(`${GITLAB_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.https_gitlab_web.entrypoints=websecure"
       - "traefik.http.routers.https_gitlab_web.middlewares=defaultchain@file"
@@ -55,27 +53,38 @@ services:
       - "traefik.http.routers.https_gitlab_web.tls=true"
       - "traefik.http.routers.https_gitlab_web.tls.certresolver=hetzner01"
       - "traefik.http.routers.https_gitlab_web.tls.domains[0].main=${GITLAB_EXTERNAL_DOMAIN}"
+
       - "traefik.http.services.gitlab_web.loadbalancer.server.port=${GITLAB_EXTERNAL_PORT}"
       - "traefik.http.services.gitlab_web.loadbalancer.server.scheme=http"
       - "traefik.http.services.gitlab_web.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.gitlab_web.loadbalancer.passhostheader=true"
 
+      # Registry
       - "traefik.http.routers.http_gitlab_registry.rule=Host(`${GITLAB_REGISTRY_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.http_gitlab_registry.entrypoints=web"
       - "traefik.http.routers.http_gitlab_registry.middlewares=defaultchain@file,redirectToHttps@file"
+      - "traefik.http.routers.http_gitlab_registry.service=gitlab_registry"
+
       - "traefik.http.routers.https_gitlab_registry.rule=Host(`${GITLAB_REGISTRY_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.https_gitlab_registry.entrypoints=websecure"
       - "traefik.http.routers.https_gitlab_registry.middlewares=defaultchain@file"
       - "traefik.http.routers.https_gitlab_registry.service=gitlab_registry"
       - "traefik.http.routers.https_gitlab_registry.tls=true"
       - "traefik.http.routers.https_gitlab_registry.tls.certresolver=hetzner01"
-      - "traefik.http.routers.https_gitlab_registry.tls.domains[0].main=$GITLAB_REGISTRY_EXTERNAL_DOMAIN}"
+      - "traefik.http.routers.https_gitlab_registry.tls.domains[0].main=${GITLAB_REGISTRY_EXTERNAL_DOMAIN}"
+
       - "traefik.http.services.gitlab_registry.loadbalancer.server.port=${GITLAB_REGISTRY_EXTERNAL_PORT}"
       - "traefik.http.services.gitlab_registry.loadbalancer.server.scheme=http"
       - "traefik.http.services.gitlab_registry.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.gitlab_registry.loadbalancer.passhostheader=true"
 
+      # Mattermost
       - "traefik.http.routers.http_gitlab_mattermost.rule=Host(`${GITLAB_MATTERMOST_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.http_gitlab_mattermost.entrypoints=web"
       - "traefik.http.routers.http_gitlab_mattermost.middlewares=defaultchain@file,redirectToHttps@file"
+      - "traefik.http.routers.http_gitlab_mattermost.service=gitlab_mattermost"
+
+
       - "traefik.http.routers.https_gitlab_mattermost.rule=Host(`${GITLAB_MATTERMOST_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.https_gitlab_mattermost.entrypoints=websecure"
       - "traefik.http.routers.https_gitlab_mattermost.middlewares=defaultchain@file"
@@ -83,28 +92,34 @@ services:
       - "traefik.http.routers.https_gitlab_mattermost.tls=true"
       - "traefik.http.routers.https_gitlab_mattermost.tls.certresolver=hetzner01"
       - "traefik.http.routers.https_gitlab_mattermost.tls.domains[0].main=${GITLAB_MATTERMOST_EXTERNAL_DOMAIN}"
+
       - "traefik.http.services.gitlab_mattermost.loadbalancer.server.port=${GITLAB_MATTERMOST_EXTERNAL_PORT}"
       - "traefik.http.services.gitlab_mattermost.loadbalancer.server.scheme=http"
       - "traefik.http.services.gitlab_mattermost.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.gitlab_mattermost.loadbalancer.passhostheader=true"
 
+      # Pages
       - "traefik.http.routers.http_gitlab_pages.rule=HostRegexp(`${GITLAB_PAGES_EXTERNAL_DOMAIN}`, `{subdomain:[a-z]+}.${GITLAB_PAGES_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.http_gitlab_pages.entrypoints=web"
       - "traefik.http.routers.http_gitlab_pages.middlewares=defaultchain@file,redirectToHttps@file"
+      - "traefik.http.routers.http_gitlab_pages.service=gitlab_pages"
+
       - "traefik.http.routers.https_gitlab_pages.rule=HostRegexp(`${GITLAB_PAGES_EXTERNAL_DOMAIN}`, `{subdomain:[a-z]+}.${GITLAB_PAGES_EXTERNAL_DOMAIN}`)"
       - "traefik.http.routers.https_gitlab_pages.entrypoints=websecure"
-      # - "traefik.http.routers.https_gitlab_pages.middlewares=defaultchain@file"
+      - "traefik.http.routers.https_gitlab_pages.middlewares=defaultchain@file"
       - "traefik.http.routers.https_gitlab_pages.service=gitlab_pages"
       - "traefik.http.routers.https_gitlab_pages.tls=true"
       - "traefik.http.routers.https_gitlab_pages.tls.certresolver=hetzner01"
       - "traefik.http.routers.https_gitlab_pages.tls.domains[0].main=${GITLAB_PAGES_EXTERNAL_DOMAIN}"
       - "traefik.http.routers.https_gitlab_pages.tls.domains[1].main=*.${GITLAB_PAGES_EXTERNAL_DOMAIN}"
+
       - "traefik.http.services.gitlab_pages.loadbalancer.server.port=${GITLAB_PAGES_EXTERNAL_PORT}"
       - "traefik.http.services.gitlab_pages.loadbalancer.server.scheme=http"
       - "traefik.http.services.gitlab_pages.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.gitlab_pages.loadbalancer.passhostheader=true"
 
   runner:
     image: gitlab/gitlab-runner:latest
-    container_name: gitlab-runner
     restart: always
     networks:
       default:
@@ -118,8 +133,10 @@ networks:
       name: traefik_bridge
 
 secrets:
-  gitlab_auth_token:
-    file: ${secrets}/gitlab_auth_token.txt
+  gitlab_imap_password:
+    file: ${secrets}/gitlab_imap_password.txt
+  gitlab_imap_user:
+    file: ${secrets}/gitlab_imap_user.txt
   gitlab_root_password:
     file: ${secrets}/gitlab_root_password.txt
   gitlab_smtp_password:
